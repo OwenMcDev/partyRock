@@ -7,7 +7,7 @@ char* WEAPON_NAME = "weapon_microsmg";
 
 void get_nearest_player_ped(Vector3 from, Ped* player_ped, Vector3* player_pos)
 {
-	int id = -1;
+	int id = 0;
 	float min_dist;
 	bool first_player = true;
 	
