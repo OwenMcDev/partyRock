@@ -1,0 +1,130 @@
+char* PED_MODELS[] = { "ig_old_man1a", "ig_old_man2" };
+char* VEHICLE_MODELS[] = { "bodhi2" };
+char* _GROUP_NAME = "mcdonald_family";
+char* WEAPON_NAME = "weapon_microsmg";
+
+void get_nearest_player_ped(Vector3 from, Ped* player_ped, Vector3* player_pos)
+{
+	int i = 0, id = -1;
+	float min_dist;
+	bool first_player = true;
+
+	while (i <= 31)
+	{
+		if (NETWORK::NETWORK_IS_PLAYER_ACTIVE(i) && !ENTITY::IS_ENTITY_DEAD(i))
+		{
+			*player_ped = PLAYER::GET_PLAYER_PED(i);
+			*player_pos = ENTITY::GET_ENTITY_COORDS(*player_ped, true);
+			float distanza = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(player_pos->x, player_pos->y, player_pos->z, from.x, from.y, from.z, true);
+
+			if (distanza < min_dist || first_player)
+			{
+				min_dist = distanza;
+				id = i;
+				first_player = false;
+			}
+		}
+
+		i++;
+	}
+
+	*player_ped = PLAYER::GET_PLAYER_PED(id);
+	*player_pos = ENTITY::GET_ENTITY_COORDS(*player_ped, true);
+}
+
+void main()
+{
+	//sequenza tasti
+	while (!CONTROLS::IS_CONTROL_PRESSED(1, 51))
+	{
+		WAIT(0);
+	}
+
+	WAIT(3000);
+
+	while (!CONTROLS::IS_CONTROL_PRESSED(1, 51))
+	{
+		WAIT(0);
+	}
+
+	//caricamento navmesh mappa
+	PATHFIND::LOAD_ALL_PATH_NODES(true);
+	while (!PATHFIND::ARE_ALL_NAVMESH_REGIONS_LOADED())
+	{
+		WAIT(0);
+	}
+
+	//richiedi modelli
+	Hash vehicle_hash = GAMEPLAY::GET_HASH_KEY(VEHICLE_MODELS[0]);	
+	STREAMING::REQUEST_MODEL(vehicle_hash);
+	while (!STREAMING::HAS_MODEL_LOADED(vehicle_hash))
+	{
+		WAIT(0);
+	}
+
+	Hash* ped_hashes = new Hash[2];
+	for (int i = 0; i < 2; i++)
+	{
+		ped_hashes[i] = GAMEPLAY::GET_HASH_KEY(PED_MODELS[i]);
+		STREAMING::REQUEST_MODEL(ped_hashes[i]);
+		while (!STREAMING::HAS_MODEL_LOADED(ped_hashes[i]))
+		{
+			WAIT(0);
+		}
+	}
+
+	//spawna veicolo
+	Vector3 spawn_pos = ENTITY::GET_ENTITY_COORDS(PLAYER::PLAYER_PED_ID(), true);
+
+	Vehicle vehicle = VEHICLE::CREATE_VEHICLE(vehicle_hash, spawn_pos.x, spawn_pos.y, spawn_pos.z, 0.0f, true, true);
+	ENTITY::SET_ENTITY_INVINCIBLE(vehicle, true);
+	ENTITY::SET_ENTITY_AS_MISSION_ENTITY(vehicle, true, true);
+	VEHICLE::SET_VEHICLE_DOORS_LOCKED(vehicle, 2);
+
+	Blip vehicle_blip = UI::ADD_BLIP_FOR_ENTITY(vehicle);
+	UI::SET_BLIP_AS_FRIENDLY(vehicle_blip, true);
+
+	int vehicle_seats = VEHICLE::_GET_VEHICLE_MODEL_MAX_NUMBER_OF_PASSENGERS(vehicle_hash);
+
+	//crea relationship group
+	Hash group_hash;
+	PED::ADD_RELATIONSHIP_GROUP(_GROUP_NAME, &group_hash);
+
+	//spawna guidatore
+	Ped driver_ped;
+	driver_ped = PED::CREATE_PED_INSIDE_VEHICLE(vehicle, 27, ped_hashes[1], -1, true, false);
+	PED::SET_PED_COMBAT_ATTRIBUTES(driver_ped, 3, false);
+	ENTITY::SET_ENTITY_INVINCIBLE(driver_ped, true);
+	PED::SET_PED_CAN_BE_DRAGGED_OUT(driver_ped, false);
+	PED::SET_PED_RELATIONSHIP_GROUP_HASH(driver_ped, group_hash);
+
+	//spawna mongoli passeggeri
+	Ped* passenger_peds = new Ped[vehicle_seats - 1];
+	Hash weapon_hash = GAMEPLAY::GET_HASH_KEY(WEAPON_NAME);
+	for (int i = 0; i < (vehicle_seats - 1); i++)
+	{
+		passenger_peds[i] = PED::CREATE_PED_INSIDE_VEHICLE(vehicle, 27, ped_hashes[0], i, true, false);
+		PED::SET_PED_COMBAT_ATTRIBUTES(passenger_peds[i], 3, false);
+		WEAPON::GIVE_WEAPON_TO_PED(passenger_peds[i], weapon_hash, 9999, false, true);
+		WEAPON::SET_PED_INFINITE_AMMO(passenger_peds[i], true, weapon_hash);
+		ENTITY::SET_ENTITY_INVINCIBLE(passenger_peds[i], true);
+		PED::SET_PED_CAN_BE_DRAGGED_OUT(passenger_peds[i], false);
+		PED::SET_PED_RELATIONSHIP_GROUP_HASH(passenger_peds[i], group_hash);
+	}
+
+	while (TRUE)
+	{	
+		//ottieni coords veicolo e target
+		Vector3 vehicle_pos = ENTITY::GET_ENTITY_COORDS(vehicle, true);
+		Vector3 player_pos;
+		Ped player_ped;
+		get_nearest_player_ped(vehicle_pos, &player_ped, &player_pos);
+		//aggiorna target e tasks
+		AI::_TASK_VEHICLE_FOLLOW(driver_ped, vehicle, player_ped, DrivingStyleRushed, 40.0f, 0.0f);
+
+		for (int i = 0; i < (vehicle_seats - 1); i++)
+			AI::TASK_COMBAT_PED(passenger_peds[i], player_ped, 0, 16);
+
+		WAIT(1000);
+	}
+}
