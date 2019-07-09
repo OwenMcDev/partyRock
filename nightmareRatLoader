@@ -1,0 +1,74 @@
+struct Coords
+{
+	float x;
+	float y;
+	float z;
+};
+
+Ped get_nearest_player_ped(Vector3 coords)
+{
+	int i = 0, id = -1;
+	float min_dist;
+	bool first_player = true;
+	Ped player_ped;
+
+	while (i <= 31)
+	{
+		if (NETWORK::NETWORK_IS_PLAYER_ACTIVE(i) && !ENTITY::IS_ENTITY_DEAD(i))
+		{
+			player_ped = PLAYER::GET_PLAYER_PED(i);
+			Vector3 player_pos = ENTITY::GET_ENTITY_COORDS(player_ped, true);
+			float distanza = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(player_pos.x, player_pos.y, player_pos.z, coords.x, coords.y, coords.z, true);
+
+			if (distanza < min_dist || first_player)
+			{
+				min_dist = distanza;
+				id = i;
+				first_player = false;
+			}
+		}
+		i++;
+	}
+
+	return player_ped;
+}
+
+void main()
+{
+	while (!CONTROLS::IS_CONTROL_PRESSED(1, 51))
+	{
+		WAIT(0);
+	}
+
+	//richiedi modello vehigulo
+	Hash vehicle_hash = GAMEPLAY::GET_HASH_KEY("ratloader");	
+	STREAMING::REQUEST_MODEL(vehicle_hash);
+	while (!STREAMING::HAS_MODEL_LOADED(vehicle_hash))
+	{
+		WAIT(0);
+	}
+
+	//spawn fisso
+	Vector3 vehicle_pos = ENTITY::GET_ENTITY_COORDS(PLAYER::PLAYER_PED_ID(), true);
+
+	while (true)
+	{	
+		//spawna il porta ratti
+		Vehicle vehicle = VEHICLE::CREATE_VEHICLE(vehicle_hash, vehicle_pos.x, vehicle_pos.y, vehicle_pos.z, 0.0f, true, true);
+		ENTITY::SET_ENTITY_INVINCIBLE(vehicle, true);
+		ENTITY::SET_ENTITY_AS_MISSION_ENTITY(vehicle, true, true);
+		WAIT(5000);
+
+		//coords liberale
+		int player_ped = get_nearest_player_ped(vehicle_pos);
+		Vector3 player_pos = ENTITY::GET_ENTITY_COORDS(player_ped, true);
+
+		//applica vettore
+		float distance = GAMEPLAY::GET_DISTANCE_BETWEEN_COORDS(player_pos.x, player_pos.y, player_pos.z, vehicle_pos.x, vehicle_pos.y, vehicle_pos.z, true);
+		Coords force = {(player_pos.x - vehicle_pos.x) * distance, (player_pos.y - vehicle_pos.y) * distance, (player_pos.z - vehicle_pos.z) * distance};
+
+		ENTITY::APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(vehicle, 1, force.x, force.y, force.z, false, false, true, false);
+
+		WAIT(0);
+	}
+}
