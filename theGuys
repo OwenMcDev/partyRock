@@ -1,3 +1,5 @@
+unsigned short int MAX_ONLINE_PLAYERS = 31;
+
 char* PED_MODELS[] = { "ig_old_man1a", "ig_old_man2" };
 char* VEHICLE_MODELS[] = { "bodhi2" };
 char* _GROUP_NAME = "mcdonald_family";
@@ -5,11 +7,11 @@ char* WEAPON_NAME = "weapon_microsmg";
 
 void get_nearest_player_ped(Vector3 from, Ped* player_ped, Vector3* player_pos)
 {
-	int i = 0, id = -1;
+	int id = -1;
 	float min_dist;
 	bool first_player = true;
-
-	while (i <= 31)
+	
+	for(int i = 0; i < MAX_ONLINE_PLAYERS; i++)
 	{
 		if (NETWORK::NETWORK_IS_PLAYER_ACTIVE(i) && !ENTITY::IS_ENTITY_DEAD(i))
 		{
@@ -24,8 +26,6 @@ void get_nearest_player_ped(Vector3 from, Ped* player_ped, Vector3* player_pos)
 				first_player = false;
 			}
 		}
-
-		i++;
 	}
 
 	*player_ped = PLAYER::GET_PLAYER_PED(id);
