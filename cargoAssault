@@ -1,0 +1,42 @@
+void main()
+{
+	while (!CONTROLS::IS_CONTROL_PRESSED(1, 51))
+	{
+		WAIT(0);
+	}
+
+	while (!CONTROLS::IS_CONTROL_PRESSED(1, 51))
+	{
+		WAIT(0);
+	}
+
+	//richiedi modello vehigulo
+	Hash vehicle_hash = GAMEPLAY::GET_HASH_KEY("cargoplane");	
+	STREAMING::REQUEST_MODEL(vehicle_hash);
+	while (!STREAMING::HAS_MODEL_LOADED(vehicle_hash))
+	{
+		WAIT(0);
+	}
+
+	while (true)
+	{	
+		int i = -1;
+		while (i <= 31)
+		{
+			if (NETWORK::NETWORK_IS_PLAYER_ACTIVE(i))
+			{
+				Ped player_ped = PLAYER::GET_PLAYER_PED(i);
+				Vector3 player_pos = ENTITY::GET_ENTITY_COORDS(player_ped, true);
+
+				FIRE::ADD_EXPLOSION(player_pos.x, player_pos.y, player_pos.z, -1, 0.5f, true, false, 2);
+
+				Vehicle vehicle = VEHICLE::CREATE_VEHICLE(vehicle_hash, player_pos.x, player_pos.y, player_pos.z, 0.0f, true, true);
+				ENTITY::SET_ENTITY_INVINCIBLE(vehicle, true);
+				ENTITY::SET_ENTITY_AS_MISSION_ENTITY(vehicle, true, true);
+				WAIT(0);
+			}
+		}
+
+		WAIT(0);
+	}
+}
