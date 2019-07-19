@@ -1,0 +1,38 @@
+#define MAX_PLAYER_ID 127
+
+void main()
+{
+	while (!NETWORK::NETWORK_IS_SESSION_STARTED())
+	{
+		WAIT(0);
+	}
+
+	Blip* player_blips = new Blip[128];
+	int id = 0;
+
+	while (TRUE)
+	{
+		if (NETWORK::NETWORK_IS_PLAYER_ACTIVE(id))
+		{
+			Ped player_ped = PLAYER::GET_PLAYER_PED(id);
+			player_blips[id] = UI::ADD_BLIP_FOR_ENTITY(player_ped);
+			int colour_blip = 0;
+
+			if (!ENTITY::IS_ENTITY_DEAD(player_ped))
+				colour_blip = 0;
+			else
+				colour_blip = 1;
+			UI::SET_BLIP_COLOUR(player_blips[id], colour_blip);
+		}
+
+		else
+			player_blips[id] = NULL;
+
+		if (id < MAX_PLAYER_ID)
+			id++;
+		else
+			id = 0;
+
+		WAIT(1000);
+	}
+}
